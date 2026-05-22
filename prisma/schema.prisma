@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum PriceSource {
+  MANUAL
+  USER
+  SCRAPER
+}
+
+enum SubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+
+  submissions PriceSubmission[]
+}
+
+model Store {
+  id      String  @id @default(cuid())
+  name    String
+  chain   String?
+  village String
+  address String
+  lat     Float
+  lng     Float
+
+  prices      Price[]
+  submissions PriceSubmission[]
+}
+
+model Product {
+  id       String  @id @default(cuid())
+  name     String
+  brand    String?
+  category String?
+  size     Float?
+  unit     String? // "lb", "oz", "each", "gallon", etc.
+  barcode  String? @unique
+
+  prices Price[]
+
+  @@index([name]) // speeds up full-text search
+}
+
+model Price {
+  id          String      @id @default(cuid())
+  productId   String
+  storeId     String
+  price       Float       // sticker price
+  unitPrice   Float?      // price per unit (e.g. $/lb) — calculated on write
+  source      PriceSource @default(MANUAL)
+  observedAt  DateTime    @default(now())
+
+  product Product @relation(fields: [productId], references: [id])
+  store   Store   @relation(fields: [storeId], references: [id])
+
+  @@index([productId])
+  @@index([storeId])
+}
+
+model PriceSubmission {
+  id          String           @id @default(cuid())
+  productName String
+  storeId     String
+  price       Float
+  photoUrl    String?
+  submittedBy String?          // User id (optional — allow anonymous)
+  status      SubmissionStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+
+  store Store  @relation(fields: [storeId], references: [id])
+  user  User?  @relation(fields: [submittedBy], references: [id])
+
+  @@index([status])
+}
